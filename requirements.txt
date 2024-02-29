@@ -1,6 +1,9 @@
 Flask~=2.3.2
 python-dotenv~=1.0.0
+mypy~=1.1.1
 numpy~=1.24.3
 flask-cors~=3.0.10
 utm~=0.7.0
 tqdm~=4.65.0
+types-tqdm~=4.66.0
+types-Flask-Cors~=4.0.0

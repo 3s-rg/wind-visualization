@@ -1,10 +1,12 @@
 import os
+import sys
 
 from ..logic.ingest import get_ingestable_datasets, ingest_dataset
 from ..logic.helpers import join_abs_path
 
 
-# reads data from ../data/unprocessed and writes processed data to ../data/processed
+# usage: python -m server.scripts.ingest_data [input_dir] [output_dir]
+# reads data from input_dir and writes processed data to output_dir
 # data is stored in trixels based on a Hierarchical Triangular Mesh (HTM), all trixels up to depth N are generated
 # trixel ids looks like this: N0-0-1-2-3 (N0 is the root trixel, 0-1-2-3 is the path to the sub-trixel)
 # /(N0|N1|N2|N3|S0|S1|S2|S3)(-[0-3])*/
@@ -13,11 +15,17 @@ from ..logic.helpers import join_abs_path
 # latitude, longitude, altitude, u, v, w
 
 
-def process_data():
-    scripts_dir = os.path.dirname(os.path.realpath(__file__))
-    data_dir = join_abs_path(scripts_dir, "..", "data")
-    unprocessed_dir = join_abs_path(data_dir, "unprocessed")
-    processed_dir = join_abs_path(data_dir, "processed")
+def process_data(input_dir: str, output_dir: str) -> None:
+    unprocessed_dir = join_abs_path(input_dir)
+    processed_dir = join_abs_path(output_dir)
+
+    if not os.path.exists(unprocessed_dir):
+        print(f"Unprocessed directory {unprocessed_dir} does not exist")
+        return
+
+    # create processed directory if it does not exist
+    if not os.path.exists(processed_dir):
+        os.makedirs(processed_dir)
 
     print(f"Looking for datasets to process in {unprocessed_dir}")
 
@@ -42,4 +50,11 @@ def process_data():
 
 
 if __name__ == "__main__":
-    process_data()
+    if len(sys.argv) != 3:
+        print("Usage: python -m server.scripts.ingest_data [input_dir] [output_dir]")
+        sys.exit(1)
+
+    input_dir = sys.argv[1]
+    output_dir = sys.argv[2]
+
+    process_data(input_dir, output_dir)

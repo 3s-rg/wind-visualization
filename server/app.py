@@ -6,14 +6,22 @@ from dotenv import dotenv_values
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from .logic.datasets import get_dataset_names, get_datasets_with_simplified_layers
+from logic.datasets import get_dataset_names, get_datasets_with_simplified_layers
 
-from .logic.htm import (
+from logic.htm import (
     Halfspace,
     lat_lon_to_xyz,
     sphere_surface_radius_to_halfspace_distance,
 )
-from .logic.constants import DETAILED_DEPTH, MAX_RADIUS
+
+from logic.constants import DETAILED_DEPTH, MAX_RADIUS
+
+env = os.environ | dotenv_values(".env.local")
+
+DATA_DIR = os.path.abspath(env.get("DATA_DIR", "./data/processed"))  # type: ignore
+
+print(f"DATA_DIR: {DATA_DIR}")
+print(f"APP_ENV: {env.get('APP_ENV')}")
 
 app = Flask(__name__)
 CORS(app)
@@ -26,7 +34,7 @@ def index():
 
 @app.route("/datasets", methods=["GET"])
 def datasets():
-    return jsonify(get_datasets_with_simplified_layers())
+    return jsonify(get_datasets_with_simplified_layers(DATA_DIR))
 
 
 @app.route("/simplified", methods=["GET"])
@@ -44,16 +52,13 @@ def simplified():
             400,
         )
 
-    if dataset not in get_dataset_names():
+    if dataset not in get_dataset_names(DATA_DIR):
         return (
             jsonify({"error": f"Dataset {dataset} does not exist."}),
             400,
         )
 
-    server_dir = os.path.dirname(os.path.abspath(__file__))
-
-    dataset_dir = os.path.join(server_dir, "data", "processed", dataset)
-
+    dataset_dir = os.path.join(DATA_DIR, dataset)
     meta_file = os.path.join(dataset_dir, "meta.json")
 
     with open(meta_file) as f:
@@ -171,15 +176,13 @@ def detailed_by_trixel_names():
             400,
         )
 
-    if dataset not in get_dataset_names():
+    if dataset not in get_dataset_names(DATA_DIR):
         return (
             jsonify({"error": f"Dataset {dataset} does not exist."}),
             400,
         )
 
-    server_dir = os.path.dirname(os.path.abspath(__file__))
-
-    dataset_dir = os.path.join(server_dir, "data", "processed", dataset)
+    dataset_dir = os.path.join(DATA_DIR, dataset)
 
     data = {}
 
@@ -197,37 +200,10 @@ def detailed_by_trixel_names():
     return jsonify(data)
 
 
-def read_env():
-    """
-    Reads environment variables from .env files and returns them as a dictionary
-    """
-
-    # collect env variables to determine app environment
-    env_preflight = {
-        **dotenv_values(".env.local"),
-        **os.environ,
-    }
-
-    app_env = env_preflight.get("APP_ENV", "production")
-
-    # merge env variables from current app environment
-    env = {
-        "APP_ENV": app_env,
-        **dotenv_values(f".env.{app_env}"),
-        **env_preflight,
-    }
-
-    return env
-
-
 if __name__ == "__main__":
     """
     Main entry point for the server
     """
-
-    env = read_env()
-
-    print(f"APP_ENV: {env.get('APP_ENV')}")
 
     is_dev = env.get("APP_ENV") == "development"
 

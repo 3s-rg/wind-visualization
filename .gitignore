@@ -1,3 +1,6 @@
+data
+.env.local
+
 # Created by https://www.toptal.com/developers/gitignore/api/node,python,visualstudiocode,macos,windows,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=node,python,visualstudiocode,macos,windows,linux
 

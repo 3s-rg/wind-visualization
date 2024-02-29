@@ -4,12 +4,40 @@
 
 Node.js `^18`, Python `^3.11`
 
+## Environment Variables
+
+Environment variables are stored in `.env.local`.
+The variables describe some of the behavior of the application:
+
+```conf
+# describes if development or production settings should be used
+# available options: "development" and "production"
+APP_ENV="development"
+
+# defines on which port the flask app server should listenin debug mode
+# default is 6000
+SERVER_PORT=8080
+
+# directory of the processed data relative to the directory from which
+# the server is started or an absolute path
+DATA_DIR="./data/processed"
+
+# defines on which port the frontend server should listen
+VITE_PORT=8090
+
+# defines on which url the frontend server can find the app server
+# note that with firewalls or port forwarding, this can be a different port
+# than defined in SERVER_PORT
+VITE_SERVER_URL="http://localhost:6000"
+
+# token to use Cesium Ion on the website
+# get this from https://ion.cesium.com > Sign up > Access Tokens
+VITE_CESIUM_ION_TOKEN="abcdefghijklmnop..."
+```
+
 ## Getting Started
 
 ```bash
-# Create .env.local (and fill out Cesium token)
-cp .env.example .env.local
-
 # Create venv
 python -m venv .venv
 
@@ -26,7 +54,7 @@ npm run dev
 
 ## Ingest Datasets
 
-Place new datasets inside `server/data/unprocessed/[dataset name]/`.
+Place new datasets inside `data/unprocessed/[dataset name]/`.
 The dataset should contain a `meta.json` file with the following structure:
 
 ```json
@@ -49,64 +77,31 @@ File names are irrelevant.
 To ingest the dataset, run the following command:
 
 ```bash
-python -m server.scripts.ingest_data
+source .venv/bin/activate
+python -m server.scripts.ingest_data ./data/unprocessed ./data/processed
 ```
 
 This can take a while depending on the size of the dataset. Existing datasets will be skipped.
 
-## Deploy
+## Docker
 
 For an easy prototype deployment, we recommend using Nginx for the frontend and just running the internal Flask server for the backend.
 For a production deployment, a real WSGI server should be used.
+We use `uWSGI` in Docker as an example, along with `nginx` serving the static frontend.
 
-Example Nginx config:
-
-```nginx
-server {
-    server_name [your domain]
-
-    root /[path to project]/dist;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ @proxy;
-    }
-
-    location @proxy {
-        proxy_pass http://127.0.0.1:[port];
-        proxy_set_header Host $host;
-
-        proxy_http_version                 1.1;
-        proxy_cache_bypass                 $http_upgrade;
-
-        # Proxy SSL
-        proxy_ssl_server_name              on;
-
-        # Proxy headers
-        proxy_set_header Host $http_host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # Proxy timeouts
-        proxy_connect_timeout              60s;
-        proxy_send_timeout                 60s;
-        proxy_read_timeout                 60s;
-    }
-
-    listen [::]:80;
-    listen 80;
-}
-```
-
-Then run the following command to build the frontend:
+First, run the following command to build the frontend:
 
 ```bash
 npm run build
 ```
 
-And run the following command to start the backend:
+Static files will land in the `dist` directory.
+
+Run frontend and backend services with `docker compose`:
 
 ```bash
-python -m server.app
+docker compose build
+docker compose up
 ```
+
+The site will then be available on `localhost:8000`.

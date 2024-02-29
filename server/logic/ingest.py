@@ -5,7 +5,7 @@ import os
 import sys
 import typing
 import numpy as np
-import utm
+import utm  # type: ignore
 
 import tqdm
 
@@ -183,18 +183,18 @@ def parse_layer_lines(
     Parses a layer file and returns a list of tuples of the form (x, y, z, u, v, w)
     """
 
+    # with open(layer_path, "r") as f:
+    # lines_str = f.readlines()
+
+    # print(f"Read {len(lines_str)} lines")
+
     with open(layer_path, "r") as f:
-        lines = f.readlines()
+        lines = [
+            (int(x), int(y), int(z), float(u), float(v), float(w))
+            for x, y, z, u, v, w in (line.strip().split() for line in f.readlines())
+        ]
 
-    print(f"Read {len(lines)} lines")
-
-    lines = [line.strip().split() for line in lines]
-    lines = [
-        (int(x), int(y), int(z), float(u), float(v), float(w))
-        for x, y, z, u, v, w in lines
-    ]
-
-    print(f"Parsed {len(lines)} data points")
+    print(f"Read and parsed {len(lines)} data points")
 
     return lines
 
@@ -261,7 +261,7 @@ def build_utm_to_htm_mapping(
     utm_center_x = int((dataset.utm_corner_min_x + dataset.utm_corner_max_x) / 2)
     utm_center_y = int((dataset.utm_corner_min_y + dataset.utm_corner_max_y) / 2)
 
-    mapping = [[] for _ in range(max_y - min_y + 1)]
+    mapping: typing.List[typing.List[str]] = [[] for _ in range(max_y - min_y + 1)]
 
     prev_trixel = None
     cache_hits = 0
@@ -272,7 +272,7 @@ def build_utm_to_htm_mapping(
     )
 
     for i, (y, x) in enumerate(t):
-        if i % 1000 == 0:
+        if i % 10000 == 0:
             t.set_postfix(
                 cache_hit_rate=f"{cache_hits / (i + 1) * 100:.2f}%",
             )
@@ -300,7 +300,9 @@ def parse_layer_to_trixels(
     dataset: Dataset,
     layer_path: str,
     mapping: Mapping,
-) -> typing.Dict[str, typing.List[typing.List[float]]]:
+) -> typing.Dict[
+    str, typing.List[typing.Tuple[float, float, float, float, float, float]]
+]:
     """
     Parses a layer file and returns a dictionary of trixel names to lists of points, using the given mapping
     """
@@ -309,7 +311,9 @@ def parse_layer_to_trixels(
 
     print(f"Processing layer {layer_filename}")
 
-    trixels = {}
+    trixels: typing.Dict[
+        str, typing.List[typing.Tuple[float, float, float, float, float, float]]
+    ] = {}
 
     lines = parse_layer_lines(layer_path)
 
@@ -319,7 +323,11 @@ def parse_layer_to_trixels(
     utm_center_y = int((dataset.utm_corner_min_y + dataset.utm_corner_max_y) / 2)
 
     t = tqdm.tqdm(lines)
-    for line_index, line in enumerate(t):
+
+    def map_line(
+        line: typing.Tuple[int, int, int, float, float, float],
+    ) -> None:
+        # for line in t:
         x, y, z, u, v, w = line
 
         utm_x = utm_center_x + x
@@ -332,7 +340,9 @@ def parse_layer_to_trixels(
         if htm_trixel_name not in trixels:
             trixels[htm_trixel_name] = []
 
-        trixels[htm_trixel_name].append([lat, lon, z, u, v, w])
+        trixels[htm_trixel_name].append((lat, lon, z, u, v, w))
+
+    list(map(map_line, t))
 
     return trixels
 
@@ -410,7 +420,7 @@ def generate_simplified_layers(
 
     t = tqdm.tqdm(trixels)
 
-    for trixel_name in t:
+    def simplify(trixel_name: str) -> None:
         trixel = find_trixel_from_name(trixel_name)
         mid_lat, mid_lon = xyz_to_lat_lon(*trixel.get_midpoint())
 
@@ -437,6 +447,8 @@ def generate_simplified_layers(
             simplifiedLayers[altitude].append(
                 [mid_lat, mid_lon, altitude, *np.average(points, axis=0)]
             )
+
+    list(map(simplify, t))
 
     trixel_simplified_dir = os.path.join(
         dataset.processed_path,
@@ -525,7 +537,14 @@ def ingest_dataset(dataset: Dataset):
 
         t = tqdm.tqdm(layer_trixels.items())
 
-        for trixel_name, trixel_data in t:
+        # def save_trixels(
+        #     x: typing.Tuple[
+        #         str, typing.List[typing.Tuple[float, float, float, float, float, float]]
+        #     ],
+        # ):
+        for x in t:
+            trixel_name = x[0]
+            trixel_data = x[1]
             trixel_dirs = trixel_name.replace("-", "/")
 
             trixel_dir = os.path.join(dataset.processed_path, trixel_dirs)
@@ -540,6 +559,8 @@ def ingest_dataset(dataset: Dataset):
             np.save(trixel_file, trixel_data)
 
             saved_trixels.add(trixel_name)
+
+        # [save_trixels(x) for x in t]
 
     trixels_by_depth = backfill_trixels(dataset, saved_trixels)
 

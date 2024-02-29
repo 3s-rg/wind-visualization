@@ -1,0 +1,22 @@
+version: '3.1'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - VITE_SERVER_URL=http://localhost:8000
+
+  app:
+    build: .
+    ports:
+      - "8000:8000" # server port
+    env_file:
+      - .env.local
+    environment:
+      - DATA_DIR=/data/processed
+    volumes:
+      - ./data:/data

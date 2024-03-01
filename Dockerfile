@@ -23,12 +23,18 @@ RUN ./venv/bin/pip install --no-cache-dir -r requirements.txt
 
 COPY server .
 
-ENTRYPOINT [ "uwsgi" ]
-CMD [ "--http-socket", ":8000", \
-    "-i", \
-    "--plugin", "python3", \
-    "-H", "/usr/src/app/venv", \
-    "--master", \
-    "-s", "/tmp/app.sock", \
-    "--manage-script-name", \
-    "--mount", "/=app:app"]
+COPY <<"EOF" entrypoint.sh
+#!/bin/sh
+echo "Data dir: ${DATA_DIR}"
+exec uwsgi --http-socket :${SERVER_PORT:-8000} \
+    -i \
+    --plugin python3 \
+    -H /usr/src/app/venv \
+    --master \
+    -s /tmp/app.sock \
+    --manage-script-name \
+    --mount /=app:app
+EOF
+
+RUN chmod +x entrypoint.sh
+ENTRYPOINT [ "./entrypoint.sh" ]

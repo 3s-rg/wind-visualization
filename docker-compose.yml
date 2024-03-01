@@ -6,17 +6,16 @@ services:
       context: .
       dockerfile: frontend.Dockerfile
     ports:
-      - "8080:80"
+      - "8000:80"
     environment:
-      - VITE_SERVER_URL=http://localhost:8000
+      - NGINX_BACKEND_SERVICE=http://app:8081
 
   app:
     build: .
-    ports:
-      - "8000:8000" # server port
     env_file:
       - .env.local
     environment:
-      - DATA_DIR=/data/processed
+      - SERVER_PORT=8081
+      - DATA_DIR=/data
     volumes:
-      - ./data:/data
+      - ./data/processed:/data

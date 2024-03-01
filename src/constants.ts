@@ -2,7 +2,7 @@ export const HOME_LATITUDE = 52.509846;
 export const HOME_LONGITUDE = 13.304287;
 export const HOME_HEIGHT = 1000;
 
-export const SERVER_URL = import.meta.env.VITE_SERVER_URL;
+export const SERVER_URL = import.meta.env.VITE_SERVER_URL
 
 export const WIND_SPEED_LOWER_CUTOFF = 0;
 export const WIND_SPEED_UPPER_CUTOFF = 10;

@@ -1,52 +1,54 @@
+FROM node:20.11-alpine as build
+
+COPY package.json package-lock.json tsconfig.json vite.config.ts index.html ./
+COPY src ./src
+
+COPY .env.local .
+ENV VITE_SERVER_URL=""
+
+RUN npm install
+RUN npm run build
+
 FROM nginx:bookworm
 
 EXPOSE 80
-COPY dist /usr/share/nginx/html
+COPY --from=build dist /usr/share/nginx/html
 
-COPY <<"EOF" /etc/nginx/conf.d/default.conf
+# we place this in templates to replace the default.conf file
+# we need to adapt the proxy_pass directive to point to the backend service
+COPY <<"EOF" /etc/nginx/templates/default.conf.template
 server {
-    listen       80;
-    server_name  localhost;
+    root /usr/share/nginx/html;
+        index index.html;
 
-    #access_log  /var/log/nginx/host.access.log  main;
+        location / {
+            try_files $uri $uri/ @proxy;
+        }
 
-    location / {
-        root   /usr/share/nginx/html;
-        index  index.html index.htm;
+        location @proxy {
+            # app is the name of the backend service in the docker-compose file
+            proxy_pass ${NGINX_BACKEND_SERVICE};
+            proxy_set_header Host $host;
 
-        add_header Access-Control-Allow-Origin "*";
-    }
+            proxy_http_version                 1.1;
+            proxy_cache_bypass                 $http_upgrade;
 
-    #error_page  404              /404.html;
+            # Proxy SSL
+            proxy_ssl_server_name              on;
 
-    # redirect server error pages to the static page /50x.html
-    #
-    error_page   500 502 503 504  /50x.html;
-    location = /50x.html {
-        root   /usr/share/nginx/html;
-    }
+            # Proxy headers
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
 
-    # proxy the PHP scripts to Apache listening on 127.0.0.1:80
-    #
-    #location ~ \.php$ {
-    #    proxy_pass   http://127.0.0.1;
-    #}
+            # Proxy timeouts
+            proxy_connect_timeout              60s;
+            proxy_send_timeout                 60s;
+            proxy_read_timeout                 60s;
+        }
 
-    # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
-    #
-    #location ~ \.php$ {
-    #    root           html;
-    #    fastcgi_pass   127.0.0.1:9000;
-    #    fastcgi_index  index.php;
-    #    fastcgi_param  SCRIPT_FILENAME  /scripts$fastcgi_script_name;
-    #    include        fastcgi_params;
-    #}
-
-    # deny access to .htaccess files, if Apache's document root
-    # concurs with nginx's one
-    #
-    #location ~ /\.ht {
-    #    deny  all;
-    #}
+        listen [::]:80;
+        listen 80;
 }
 EOF

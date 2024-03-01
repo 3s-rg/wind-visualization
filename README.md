@@ -78,7 +78,7 @@ To ingest the dataset, run the following command:
 
 ```bash
 source .venv/bin/activate
-python -m server.scripts.ingest_data ./data/unprocessed ./data/processed
+make ingest
 ```
 
 This can take a while depending on the size of the dataset. Existing datasets will be skipped.
@@ -89,14 +89,7 @@ For an easy prototype deployment, we recommend using Nginx for the frontend and 
 For a production deployment, a real WSGI server should be used.
 We use `uWSGI` in Docker as an example, along with `nginx` serving the static frontend.
 
-First, run the following command to build the frontend:
-
-```bash
-npm run build
-```
-
-Static files will land in the `dist` directory.
-
+Note that this will load the environment variables specified in `.env.local` into the compiled version.
 Run frontend and backend services with `docker compose`:
 
 ```bash
@@ -105,3 +98,24 @@ docker compose up
 ```
 
 The site will then be available on `localhost:8000`.
+
+## Google Cloud Run
+
+The project can also be deployed to Google Cloud Run using [OpenTofu](https://opentofu.org/).
+We assume access to a Google Cloud project that has `Artifact Registry API` and `Cloud Run API` enabled (you can enable them on the GCP console or by deploying a service and watching out for error messages).
+Further, make sure you have `gcloud`, `docker`, and `make` available.
+
+First, configure the necessary variables in `gcloud.env`:
+
+```conf
+GCP_PROJECT_ID=opencitywind
+GCP_REGION=eu-west10
+```
+
+First, execute `make login` to authenticate with Google Cloud.
+Then, execute `make setup` to configure Tofu and Google Cloud.
+
+Run `make deploy` to build container images and deploy the Cloud Run service.
+You will see a URL at which you can access the service.
+
+If you want to remove the service, run `make destroy`.

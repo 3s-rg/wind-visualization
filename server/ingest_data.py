@@ -1,11 +1,11 @@
 import os
 import sys
 
-from ..logic.ingest import get_ingestable_datasets, ingest_dataset
-from ..logic.helpers import join_abs_path
+from logic.ingest import get_ingestable_datasets, ingest_dataset
+from logic.helpers import join_abs_path
 
 
-# usage: python -m server.scripts.ingest_data [input_dir] [output_dir]
+# usage: python -m server.ingest_data [input_dir] [output_dir]
 # reads data from input_dir and writes processed data to output_dir
 # data is stored in trixels based on a Hierarchical Triangular Mesh (HTM), all trixels up to depth N are generated
 # trixel ids looks like this: N0-0-1-2-3 (N0 is the root trixel, 0-1-2-3 is the path to the sub-trixel)

@@ -1,4 +1,5 @@
 include gcloud.env
+# test if the environment variables are set
 ifeq ($(GCP_PROJECT_ID),)
 $(error GCP_PROJECT_ID is not set. Do you have a gcloud.env file?)
 endif
@@ -6,10 +7,11 @@ ifeq ($(GCP_REGION),)
 $(error GCP_REGION is not set. Do you have a gcloud.env file?)
 endif
 
+
 DATA_UNPROCESSED=./data/unprocessed
 DATA_PROCESSED=./data/processed
 
-.PHONY: all build ingest login setup deploy destroy
+.PHONY: all build ingest profile login setup deploy destroy
 
 all: deploy
 
@@ -19,7 +21,17 @@ build: ./dist
 	npm run build
 
 ingest:
-	python -m server.scripts.ingest_data ${DATA_UNPROCESSED} ${DATA_PROCESSED}
+# test if venv is active
+	@(which python | grep -q .venv/bin/python) || (echo "Please activate the virtual environment first: source .venv/bin/activate" && exit 1)
+	python -m server.ingest_data ${DATA_UNPROCESSED} ${DATA_PROCESSED}
+
+profile: ingest_profile.pdf
+ingest_profile.pdf: ingest_profile.prof
+	python -m gprof2dot -f pstats $< | dot -Tpdf -o $@
+
+ingest_profile.prof:
+	@(which python | grep -q .venv/bin/python) || (echo "Please activate the virtual environment first: source .venv/bin/activate" && exit 1)
+	python -m cProfile -o $@ server/ingest_data.py ${DATA_UNPROCESSED} ${DATA_PROCESSED}
 
 login:
 	gcloud auth login

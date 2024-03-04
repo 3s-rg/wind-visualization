@@ -1,6 +1,10 @@
 data
 .env.local
 gcloud.env
+
+# profiling stuff
+ingest_profile.*
+
 # Created by https://www.toptal.com/developers/gitignore/api/node,python,visualstudiocode,macos,windows,linux,terraform
 # Edit at https://www.toptal.com/developers/gitignore?templates=node,python,visualstudiocode,macos,windows,linux,terraform
 

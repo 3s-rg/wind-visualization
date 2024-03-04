@@ -1,7 +1,8 @@
 from enum import Enum
 import math
-import sys
+import numba
 import numpy as np
+import sys
 import typing
 
 from .constants import EARTH_RADIUS
@@ -9,7 +10,10 @@ from .constants import EARTH_RADIUS
 coordinates_type = typing.Tuple[float, float, float]
 triangle_type = typing.Tuple[coordinates_type, coordinates_type, coordinates_type]
 
+EPSILON = sys.float_info.epsilon
 
+
+@numba.njit
 def lat_lon_to_xyz(lat: float, lon: float) -> coordinates_type:
     """
     Returns the xyz coordinates of a point on the unit sphere
@@ -35,6 +39,7 @@ def xyz_to_lat_lon(x: float, y: float, z: float) -> typing.Tuple[float, float]:
     return lat, lon
 
 
+@numba.njit
 def midpoint_xyz(xyz1: coordinates_type, xyz2: coordinates_type) -> coordinates_type:
     """
     Returns the xyz coordinates of the midpoint of two points on a sphere
@@ -171,23 +176,21 @@ class Trixel:
         """
         Returns whether the given point is contained in the trixel
         """
+        return self.numba_contains(self.vertices[:3], x, y, z)
 
-        v0 = np.array(self.vertices[0])
-        v1 = np.array(self.vertices[1])
-        v2 = np.array(self.vertices[2])
-
+    @staticmethod
+    @numba.njit
+    def numba_contains(vert, x, y, z):
         p = np.array([x, y, z])
 
         # float64 precision works for at least all trixels up to depth 20
-        epsilon = sys.float_info.epsilon
-
-        if np.dot(np.cross(v0, v1), p) < -epsilon:
+        if np.dot(np.cross(vert[0], vert[1]), p) < -EPSILON:
             return False
 
-        if np.dot(np.cross(v1, v2), p) < -epsilon:
+        if np.dot(np.cross(vert[1], vert[2]), p) < -EPSILON:
             return False
 
-        if np.dot(np.cross(v2, v0), p) < -epsilon:
+        if np.dot(np.cross(vert[2], vert[0]), p) < -EPSILON:
             return False
 
         return True
@@ -206,7 +209,7 @@ class Trixel:
 
         return v[0], v[1], v[2]
 
-    def get_subtrixels(self) -> typing.List["Trixel"]:
+    def get_subtrixels(self) -> typing.Generator["Trixel", None, None]:
         """
         Returns the four subtrixels of the trixel
         """
@@ -218,12 +221,12 @@ class Trixel:
         w1 = midpoint_xyz(v2, v0)
         w2 = midpoint_xyz(v0, v1)
 
-        t0 = Trixel(name + "-0", (v0, w2, w1))
-        t1 = Trixel(name + "-1", (v1, w0, w2))
-        t2 = Trixel(name + "-2", (v2, w1, w0))
-        t3 = Trixel(name + "-3", (w0, w1, w2))
+        yield Trixel(name + "-0", (v0, w2, w1))  # t0
+        yield Trixel(name + "-1", (v1, w0, w2))  # t1
+        yield Trixel(name + "-2", (v2, w1, w0))  # t2
+        yield Trixel(name + "-3", (w0, w1, w2))  # t3
 
-        return [t0, t1, t2, t3]
+        return
 
     def get_subtrixels_at_depth(self, depth: int) -> typing.List["Trixel"]:
         """
@@ -241,13 +244,13 @@ class Trixel:
         if self_depth > depth:
             raise ValueError("depth must be greater than current depth")
 
-        subtrixels = self.get_subtrixels()
+        subtrixels = list(self.get_subtrixels())
 
         for i in range(depth - self_depth - 1):
             new_subtrixels = []
 
             for subtrixel in subtrixels:
-                new_subtrixels.extend(subtrixel.get_subtrixels())
+                new_subtrixels.extend(list(subtrixel.get_subtrixels()))
 
             subtrixels = new_subtrixels
 
@@ -326,12 +329,12 @@ class Trixel:
 
 
 octahedron_vertices = (
-    (0, 0, 1),
-    (1, 0, 0),
-    (0, 1, 0),
-    (-1, 0, 0),
-    (0, -1, 0),
-    (0, 0, -1),
+    (0.0, 0.0, 1.0),
+    (1.0, 0.0, 0.0),
+    (0.0, 1.0, 0.0),
+    (-1.0, 0.0, 0.0),
+    (0.0, -1.0, 0.0),
+    (0.0, 0.0, -1.0),
 )
 
 octahedron: typing.Dict[str, Trixel] = {
@@ -406,21 +409,15 @@ def find_trixel_from_xyz(x: float, y: float, z: float, depth: int) -> Trixel:
 
     trixel = octahedron_trixel
 
-    for i in range(depth - 1):
-        t0, t1, t2, t3 = trixel.get_subtrixels()
+    def get_next(trixel, x, y, z):
+        for t in trixel.get_subtrixels():
+            if t.contains(x, y, z):
+                return t
 
-        if t0.contains(x, y, z):
-            trixel = t0
-        elif t1.contains(x, y, z):
-            trixel = t1
-        elif t2.contains(x, y, z):
-            trixel = t2
-        elif t3.contains(x, y, z):
-            trixel = t3
-        else:
-            raise ValueError(
-                f"point not contained in any trixel (depth={depth}, i={i})"
-            )
+        raise ValueError(f"point not contained in any trixel (depth={depth}, i={i})")
+
+    for i in range(depth - 1):
+        trixel = get_next(trixel, x, y, z)
 
     return trixel
 
@@ -453,7 +450,7 @@ def find_trixel_from_name(name: str) -> Trixel:
         return trixel
 
     for i in range(1, len(path)):
-        t0, t1, t2, t3 = trixel.get_subtrixels()
+        t0, t1, t2, t3 = list(trixel.get_subtrixels())
 
         if path[i] == "0":
             trixel = t0
@@ -483,12 +480,7 @@ def get_all_trixels(depth: int) -> typing.List[typing.List[Trixel]]:
         new_trixels = []
 
         for trixel in trixels[-1]:
-            t0, t1, t2, t3 = trixel.get_subtrixels()
-
-            new_trixels.append(t0)
-            new_trixels.append(t1)
-            new_trixels.append(t2)
-            new_trixels.append(t3)
+            new_trixels.extend(list(trixel.get_subtrixels()))
 
         trixels.append(new_trixels)
 

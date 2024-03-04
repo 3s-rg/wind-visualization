@@ -81,7 +81,10 @@ source .venv/bin/activate
 make ingest
 ```
 
-This can take a while depending on the size of the dataset. Existing datasets will be skipped.
+This can take a while depending on the size of the dataset.
+Existing datasets will be skipped.
+Note that we use Numba to optimize this process.
+If you want to find out how to optimize this further, use `make profile` to generate a profile call graph of the ingest process (requires GraphViz).
 
 ## Docker
 

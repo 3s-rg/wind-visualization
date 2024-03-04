@@ -5,7 +5,6 @@ import os
 import sys
 import typing
 import numpy as np
-import utm  # type: ignore
 
 import tqdm
 
@@ -16,6 +15,7 @@ from .htm import (
     lat_lon_to_xyz,
     xyz_to_lat_lon,
 )
+from .fastutm import to_latlon
 
 
 class Dataset:
@@ -277,10 +277,12 @@ def build_utm_to_htm_mapping(
                 cache_hit_rate=f"{cache_hits / (i + 1) * 100:.2f}%",
             )
 
-        utm_x = utm_center_x + x
-        utm_y = utm_center_y + y
-
-        lat, lon = utm.to_latlon(utm_x, utm_y, dataset.utm_zone, dataset.utm_hemisphere)
+        lat, lon = to_latlon(
+            utm_center_x + x,
+            utm_center_y + y,
+            dataset.utm_zone,
+            dataset.utm_hemisphere,
+        )
 
         if prev_trixel is not None and prev_trixel.contains(*lat_lon_to_xyz(lat, lon)):
             mapping[y - min_y].append(prev_trixel.name)
@@ -333,7 +335,7 @@ def parse_layer_to_trixels(
         utm_x = utm_center_x + x
         utm_y = utm_center_y + y
 
-        lat, lon = utm.to_latlon(utm_x, utm_y, dataset.utm_zone, dataset.utm_hemisphere)
+        lat, lon = to_latlon(utm_x, utm_y, dataset.utm_zone, dataset.utm_hemisphere)
 
         htm_trixel_name = mapping.get_trixel_name(x, y)
 

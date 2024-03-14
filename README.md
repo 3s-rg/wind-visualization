@@ -61,6 +61,7 @@ The dataset should contain a `meta.json` file with the following structure:
 {
   "utmHemisphere": "N",
   "utmZone": 33,
+  "coordinatesRelative": true,
   "utmCorners": [
     [383900, 5818000],
     [385900, 5820000]
@@ -70,6 +71,7 @@ The dataset should contain a `meta.json` file with the following structure:
 
 The `utmCorners` are the coordinates of the lower left and upper right corners of the dataset in UTM coordinates.
 The `utmHemisphere` and `utmZone` are the UTM zone of the dataset.
+If `coordinatesRelative` is set to `true`, coordinates will be added (or subtracted) from `utmCorners`, i.e., you have coordinates relative to some central point.
 
 The remaining `.xy` files will be ingested as data files.
 File names are irrelevant.
@@ -120,5 +122,15 @@ Then, execute `make setup` to configure Tofu and Google Cloud.
 
 Run `make deploy` to build container images and deploy the Cloud Run service.
 You will see a URL at which you can access the service.
+
+Data in `data/processed` will be automatically uploaded to a Cloud Storage Bucket called `ocw-data`.
+You can manually upload data later with:
+
+```sh
+gsutil -m rsync -d -r data/processed gs://ocw-data
+```
+
+Note that the `-d` option removes all data at the destination that is not in the source, so please use with caution!
+We do not use compression (`-J` option), as we upload mostly binary files.
 
 If you want to remove the service, run `make destroy`.

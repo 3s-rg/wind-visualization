@@ -26,6 +26,7 @@ class Dataset:
         processed_path: str,
         utm_zone: int,
         utm_hemisphere: str,
+        coordinates_relative: bool,
         utm_corner_min_x: int,
         utm_corner_min_y: int,
         utm_corner_max_x: int,
@@ -37,6 +38,7 @@ class Dataset:
         self.processed_path = processed_path
         self.utm_zone = utm_zone
         self.utm_hemisphere = utm_hemisphere
+        self.coordinates_relative = coordinates_relative
         self.utm_corner_min_x = utm_corner_min_x
         self.utm_corner_min_y = utm_corner_min_y
         self.utm_corner_max_x = utm_corner_max_x
@@ -126,6 +128,12 @@ def get_ingestable_datasets(
             print(f"Skipping {f.name} because utmCorners is missing from meta.json")
             continue
 
+        if "coordinatesRelative" not in meta:
+            print(
+                f"Skipping {f.name} because coordinatesRelative is missing from meta.json"
+            )
+            continue
+
         if (
             len(meta["utmCorners"]) != 2
             or not all(len(corner) == 2 for corner in meta["utmCorners"])
@@ -160,6 +168,7 @@ def get_ingestable_datasets(
             processed_path=processed_path,
             utm_zone=meta["utmZone"],
             utm_hemisphere=meta["utmHemisphere"],
+            coordinates_relative=meta["coordinatesRelative"],
             utm_corner_min_x=min_x,
             utm_corner_min_y=min_y,
             utm_corner_max_x=max_x,
@@ -178,7 +187,7 @@ def get_ingestable_datasets(
 
 def parse_layer_lines(
     layer_path: str,
-) -> typing.List[typing.Tuple[int, int, int, float, float, float]]:
+) -> typing.List[typing.Tuple[int, int, float, float, float, float]]:
     """
     Parses a layer file and returns a list of tuples of the form (x, y, z, u, v, w)
     """
@@ -190,7 +199,7 @@ def parse_layer_lines(
 
     with open(layer_path, "r") as f:
         lines = [
-            (int(x), int(y), int(z), float(u), float(v), float(w))
+            (int(x), int(y), float(z), float(u), float(v), float(w))
             for x, y, z, u, v, w in (line.strip().split() for line in f.readlines())
         ]
 
@@ -258,8 +267,16 @@ def build_utm_to_htm_mapping(
 
     print(f"Building UTM to HTM mapping for dataset {dataset.name}")
 
-    utm_center_x = int((dataset.utm_corner_min_x + dataset.utm_corner_max_x) / 2)
-    utm_center_y = int((dataset.utm_corner_min_y + dataset.utm_corner_max_y) / 2)
+    utm_center_x = (
+        int((dataset.utm_corner_min_x + dataset.utm_corner_max_x) / 2)
+        if dataset.coordinates_relative
+        else 0
+    )
+    utm_center_y = (
+        int((dataset.utm_corner_min_y + dataset.utm_corner_max_y) / 2)
+        if dataset.coordinates_relative
+        else 0
+    )
 
     mapping: typing.List[typing.List[str]] = [[] for _ in range(max_y - min_y + 1)]
 
@@ -276,6 +293,11 @@ def build_utm_to_htm_mapping(
             t.set_postfix(
                 cache_hit_rate=f"{cache_hits / (i + 1) * 100:.2f}%",
             )
+
+        # print(f"Processing UTM coordinates ({x}, {y})")
+        # print(f"Center UTM coordinates ({utm_center_x}, {utm_center_y})")
+        # print(f"UTM zone {dataset.utm_zone}")
+        # print(f"UTM hemisphere {dataset.utm_hemisphere}")
 
         lat, lon = to_latlon(
             utm_center_x + x,
@@ -321,13 +343,21 @@ def parse_layer_to_trixels(
 
     print(f"Mapping {len(lines)} data points to trixels")
 
-    utm_center_x = int((dataset.utm_corner_min_x + dataset.utm_corner_max_x) / 2)
-    utm_center_y = int((dataset.utm_corner_min_y + dataset.utm_corner_max_y) / 2)
+    utm_center_x = (
+        int((dataset.utm_corner_min_x + dataset.utm_corner_max_x) / 2)
+        if dataset.coordinates_relative
+        else 0
+    )
+    utm_center_y = (
+        int((dataset.utm_corner_min_y + dataset.utm_corner_max_y) / 2)
+        if dataset.coordinates_relative
+        else 0
+    )
 
     t = tqdm.tqdm(lines)
 
     def map_line(
-        line: typing.Tuple[int, int, int, float, float, float],
+        line: typing.Tuple[int, int, float, float, float, float],
     ) -> None:
         # for line in t:
         x, y, z, u, v, w = line
@@ -409,7 +439,7 @@ def backfill_trixels(
 
 def generate_simplified_layers(
     dataset: Dataset, trixels_by_depth: typing.Dict[int, typing.List[str]]
-) -> typing.List[int]:
+) -> typing.List[float]:
     """
     Generates simplified layers for a dataset
     """
@@ -418,7 +448,7 @@ def generate_simplified_layers(
 
     trixels = trixels_by_depth[SIMPLIFIED_DEPTH]
 
-    simplifiedLayers: typing.Dict[int, typing.List[typing.List[float]]] = {}
+    simplifiedLayers: typing.Dict[float, typing.List[typing.List[float]]] = {}
 
     t = tqdm.tqdm(trixels)
 
@@ -430,12 +460,12 @@ def generate_simplified_layers(
         trixel_file = os.path.join(dataset.processed_path, trixel_dirs, "data.npy")
         trixel_data = np.load(trixel_file)
 
-        pointsByAltitude: typing.Dict[int, typing.List[typing.List[float]]] = {}
+        pointsByAltitude: typing.Dict[float, typing.List[typing.List[float]]] = {}
 
         for point in trixel_data:
             x, y, z, u, v, w = point
 
-            z = round(z)
+            z = z
 
             if z not in pointsByAltitude:
                 pointsByAltitude[z] = []
@@ -470,7 +500,7 @@ def generate_simplified_layers(
 def write_meta(
     dataset: Dataset,
     trixels_by_depth: typing.Dict[int, typing.List[str]],
-    simplified_layers: typing.List[int],
+    simplified_layers: typing.List[float],
 ):
     """
     Writes a meta.json file for a dataset

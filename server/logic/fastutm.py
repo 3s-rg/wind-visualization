@@ -1,4 +1,4 @@
-import numba
+import numba  # type: ignore
 import numpy as np
 
 K0 = 0.9996
@@ -53,11 +53,11 @@ def to_latlon(
     if strict:
         if not in_bounds(easting, 100000, 1000000, upper_strict=True):
             raise ValueError(
-                "easting out of range (must be between 100,000 m and 999,999 m)"
+                f"easting {easting} out of range (must be between 100,000 m and 999,999 m)"
             )
         if not in_bounds(northing, 0, 10000000):
             raise ValueError(
-                "northing out of range (must be between 0 m and 10,000,000 m)"
+                f"northing {northing} out of range (must be between 0 m and 10,000,000 m)"
             )
 
     def check_valid_zone(zone_number, zone_letter):

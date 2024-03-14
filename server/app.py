@@ -6,15 +6,15 @@ from dotenv import dotenv_values
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from logic.datasets import get_dataset_names, get_datasets_with_simplified_layers
+from logic.datasets import get_dataset_names, get_datasets_with_simplified_layers  # type: ignore
 
-from logic.htm import (
+from logic.htm import (  # type: ignore
     Halfspace,
     lat_lon_to_xyz,
     sphere_surface_radius_to_halfspace_distance,
 )
 
-from logic.constants import DETAILED_DEPTH, MAX_RADIUS
+from logic.constants import DETAILED_DEPTH, MAX_RADIUS  # type: ignore
 
 env = os.environ | dotenv_values(".env.local")
 
@@ -208,4 +208,4 @@ if __name__ == "__main__":
     is_dev = env.get("APP_ENV") == "development"
 
     if is_dev:
-        app.run(debug=is_dev, port=env.get("SERVER_PORT", 6000))
+        app.run(debug=is_dev, port=int(env.get("SERVER_PORT", 6000)))  # type: ignore

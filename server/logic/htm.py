@@ -1,6 +1,6 @@
 from enum import Enum
 import math
-import numba
+import numba  # type: ignore
 import numpy as np
 import sys
 import typing

@@ -1,7 +1,8 @@
 import os
+import concurrent.futures
 import sys
 
-from logic.ingest import get_ingestable_datasets, ingest_dataset
+from logic.ingest import get_ingestable_datasets, ingest_dataset  # type: ignore
 from logic.helpers import join_abs_path
 
 
@@ -39,12 +40,8 @@ def process_data(input_dir: str, output_dir: str) -> None:
         f"Found {len(datasets)} dataset(s): {', '.join(map(lambda d: d.name, datasets))}"
     )
 
-    for dataset in datasets:
-        print(f"Processing {dataset}")
-
-        ingest_dataset(dataset)
-
-        print(f"Done processing {dataset}")
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        executor.map(ingest_dataset, datasets)
 
     print("Done processing all datasets")
 
